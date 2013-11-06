@@ -1,0 +1,75 @@
+go athena
+line x loc=0.00 spac=0.10
+line x loc=0.15 spac=0.01
+line x loc=0.50 spac=0.01
+line x loc=0.60 spac=0.02
+line x loc=1.35 spac=0.02
+
+line y loc=0.00 spac=0.02
+line y loc=0.20 spac=0.02
+line y loc=1.00 spac=0.05
+line y loc=2.00 spac=0.10
+line y loc=6.00 spac=0.10
+
+extract name="---new nmos simulation--"
+
+init silicon boron resistivity=10 orientation=100 space.mult=2
+method grid.oxide=0.01 gridinit.ox=0.01
+
+# recipe Recipe 458 or 250 
+# target oxide thickness is 500A
+# pad oxide
+diffus time=15 temp=800 nitro
+diffus time=20 temp=800 t.final=1000 dryo2
+diffus time=53 temp=1000 dryo2
+diffus time=5 temp=1000 nitro
+
+extract name="Xox_pad_step4" thickness material="SiO~2" mat.occno=1 x.val=.5
+struct outfile=./structures/nmos_step4_pad_oxide.str
+
+# make the p well
+implant boron dose=6e12 energy=55 tilt=7 rotation=45 crystal
+struct outfile=./structures/nmos_step14_post_p_well_implant.str
+
+# recipe 162 - well drive in
+# step 15 on process flow
+diffus time=20 temp=800 nitro
+diffus time=30 temp=800 t.final=1100 nitro
+diffus time=1560 temp=1100 nitro
+diffus time=45 temp=1100 t.final=800 nitro
+struct outfile=./structures/nmos_step15_post_well_drive_in.str
+
+# step 16
+etch oxide all
+struct outfile=./structures/nmos_step16_oxide_removed.str
+
+# recipe Recipe 458 or 250 
+# target oxide thickness is 500A
+# pad oxide
+diffus time=15 temp=800 nitro
+diffus time=20 temp=800 t.final=1000 dryo2
+diffus time=53 temp=1000 dryo2
+diffus time=5 temp=1000 nitro
+
+extract name="Xox_pad_step17" thickness material="SiO~2" mat.occno=1 x.val=.5
+struct outfile=./structures/nmos_step17_pad_oxide.str
+
+# step 26
+diffus time=300 temp=950 nitro
+struct outfile=./structures/nmos_step26_locos_fox_nitro.str
+
+# step 29
+etch oxide all
+struct outfile=./structures/nmos_step29_oxide_removed.str
+
+# grow koi oxide
+# recipe 311
+diffus time=15 temp=800 nitro
+diffus time=10 temp=800 t.final=900 nitro
+diffus time=5 temp=900 dryo2
+diffus time=42 temp=900 weto2
+diffus time=20 temp=900 t.final=800 nitro
+extract name="Xox_koi" thickness material="SiO~2" mat.occno=1 x.val=.5
+struct outfile=./structures/nmos_step30_post_koi.str
+
+quit

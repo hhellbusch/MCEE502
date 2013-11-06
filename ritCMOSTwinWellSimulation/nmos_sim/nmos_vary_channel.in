@@ -1,0 +1,9 @@
+go internal
+
+load infile=./nmos_dibl.in
+
+sweep parameter=length type=list data="0.55,0.45,0.4,0.35"
+
+save type=sdb outfile=varied_channel_output.data
+
+quit

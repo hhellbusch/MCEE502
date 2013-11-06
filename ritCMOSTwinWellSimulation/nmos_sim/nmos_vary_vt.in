@@ -1,0 +1,10 @@
+go internal
+
+load infile=./nmos_post_koi.in
+
+#sweep parameter=vtAdjustDose type=list data="9.8e11,1e12,1.1e12,1.2e12,1.6e12,2e12"
+sweep parameter=vtAdjustDose type=list data="1.05e12"
+
+save type=sdb outfile=varied_vt_adjust_output.data
+
+quit

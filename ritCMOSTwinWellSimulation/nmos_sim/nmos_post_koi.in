@@ -1,0 +1,106 @@
+go athena
+init infile=./structures/nmos_step30_post_koi.str
+method grid.oxide=0.01 gridinit.ox=0.01
+# vt adjust
+set vtAdjustDose = 1.4e12
+implant boron dose=$"vtAdjustDose" energy=65 tilt=7 rotation=45 crystal
+struct outfile=./structures/nmos_$"vtAdjustDose"_step31_vt_adjust.str
+
+# step 33
+etch oxide all
+struct outfile=./structures/nmos_step33_oxide_removed.str
+
+# recipe 474
+# step 35
+diffus time=12 temp=800 dryo2
+diffus time=20 temp=800 dryo2
+diffus time=20 temp=800 t.final=1000 dryo2
+diffus time=5 temp=1000 dryo2 hcl.pc=0.5
+diffus time=9.5 temp=1000 dryo2 hcl.pc=0.5
+diffus time=5 temp=1000 dryo2
+
+struct outfile=./structures/nmos_$"vtAdjustDose"_step35_post_gate_ox.str
+extract name="Xox_gate" thickness material="SiO~2" mat.occno=1 x.val=.5
+
+# step 36
+deposit polysilicon thick=0.60 divisions=20
+
+# step 37 - poly dope
+implant phosphor dose=2e16 energy=50 tilt=7 rotation=45 crystal
+
+# step 40
+etch polysilicon left x=0.35
+struct outfile=./structures/nmos_$"vtAdjustDose"_step40_post_gate_dep.str
+
+# step 43 N+ s/d implant
+implant phosphor dose=2e15 energy=75 tilt=7 rotation=45 crystal
+
+# step 49 - reox
+# furnace recipe 175
+diffus time=14 temp=800 nitro
+diffus time=5 temp=800 t.final=850 nitro
+diffus time=10 temp=850 nitro
+diffus time=15 temp=850 weto2
+diffus time=10 temp=850 nitro
+struct outfile=./structures/nmos_$"vtAdjustDose"_step49_post_gate_reox.str
+
+# post gate reox
+deposit oxide thick=0.30
+struct outfile=./structures/nmos_$"vtAdjustDose"_step50_lto_dep.str
+
+diffus time=20 temp=800 nitro
+diffus time=20 temp=800 t.final=1000 nitro
+diffus time=10 temp=1000 nitro
+diffus time=10 temp=1000 weto2
+diffus time=5  temp=1000 dryo2
+diffus time=5  temp=1000 nitro
+struct outfile=./structures/nmos_$"vtAdjustDose"_step51_post_sd_anneal.str
+etch oxide left x=0.2
+deposit aluminum thick=0.75
+struct outfile=./structures/nmos_$"vtAdjustDose"_step56_post_al_dep.str
+etch aluminum right x=0.25
+struct outfile=./structures/nmos_$"vtAdjustDose"_step58_post_al_etch.str
+
+extract name ="------$'vtAdjustDose'--------"
+extract name="nxj" xj silicon mat.occno=1 x.val=0.1 junc.occno=1
+# extract the N++ regions sheet resistance
+extract name="n++ sheet rho" sheet.res material="Silicon" mat.occno=1 x.val=0.05 region.occno=1
+# extract the surface conc under the channel.
+extract name="chan surf conc" surf.conc impurity="Net Doping" material="Silicon" mat.occno=1 x.val=1.1
+# extract a curve of conductance versus bias
+extract start material="Polysilicon" mat.occno=1 bias=0.0 bias.step=0.2 bias.stop=2 x.val=0.45
+extract done name="sheet cond v bias" curve(bias,1dn.conduct material="Silicon" mat.occno=1  region.occno=1) outfile="extract_$'vtAdjustDose'.dat"
+# extract the long chan Vt
+extract name="n1dvt" 1dvt ntype x.val=1.3
+
+structure mirror right
+
+electrode name=gate x=1.2 y=-0.2
+electrode name=source x=0.1 y=-0.5
+electrode name=drain x=2.65 y=-0.2
+electrode name=substrate backside
+
+structure outfile=./structures/nmos_$"vtAdjustDose"_electrical.str
+
+
+
+# Vt Atlas Test
+
+go atlas simflags="-P 1"
+# set material models
+models cvt srh print 
+contact name=gate n.poly
+interface qf=3e10
+method newton
+solve init
+
+# Bias the drain
+solve vdrain=0.1
+log outf=./logs/_$"vtAdjustDose"_vgs_id.log master
+solve vgate=0 vstep=0.01 vfinal=3.0 name=gate
+
+# extract device parameters
+extract name="nvt" (xintercept(maxslope(curve(abs(v."gate"),abs(i."drain")))) - abs(ave(v."drain"))/2.0)
+log off
+
+quit

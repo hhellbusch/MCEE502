@@ -1,0 +1,58 @@
+go athena
+init infile=./structures/nmos_1.05e+12_step58_post_al_etch.str
+set length = 1.3
+etch right p1.x=($"length"/2+0.7)
+structure outfile=./structures/afterEtch_$"length".str
+structure mirror right
+structure outfile=./structures/afterEtch_mirror_$"length".str
+
+electrode name=gate x=$"length" y=-0.2
+electrode name=source x=0.1 y=-0.5
+electrode name=drain x=($"length"+1.3) y=-0.2
+electrode name=substrate backside
+structure outfile=./structures/length_$"length"_final.str
+extract name="--$'length'--"
+go atlas simflags="-P 1"
+OUTPUT CON.BAND
+
+# set material models
+models cvt srh print
+contact name=gate n.poly
+interface qf=3e10
+
+# get initial solution
+solve init
+method newton trap
+solve prev
+# Bias the drain a bit...
+solve vdrain=0.025 vstep=0.025 vfinal=0.1 name=drain
+
+# Ramp the gate
+log outf=./logs/low_drain_bias_length_$"length".log master
+solve vgate=0 vstep=0.01 vdrain=0.1 vfinal=2.5 name=gate cname=drain
+
+# extract device parameters
+extract name="vt1" (xintercept(maxslope(curve(abs(v."gate"),abs(i."drain")))) - abs(ave(v."drain"))/2.0)
+
+# now open a dummy log file...
+log off
+
+# Now start again and ramp the drain to 5 volts...
+solve init
+
+# Bias the drain to 5 volts......slowly at first....
+solve vdrain=0.025 vstep=0.025 vfinal=0.1 name=drain
+solve vdrain=0.1 vstep=0.1 vfinal=5 name=drain
+structure outfile=./structures/electrical_gate_off_$'length'.str
+
+# Ramp the gate again with another opened logfile...
+log outf=./logs/high_drain_bias_length_$"length".log master
+solve vgate=0 vstep=0.01 vdrain=5 vfinal=2.5 name=gate cname=drain
+
+# extract the next device parameter with the drain now at 5 volts....
+extract name="vt2" (xintercept(maxslope(curve(abs(v."gate"),abs(i."drain")^.5))))
+
+log off
+# Calculate a DIBL parameter....in V/V
+extract name="ndibl" (($"vt1"-$"vt2")/(5.0-0.1))
+quit
