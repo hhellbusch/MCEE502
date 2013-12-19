@@ -1,0 +1,162 @@
+
+# EMCR-502 - Dual-gate investigation
+# Hirschman
+#
+# Nov. 20, 2013
+# 
+# ############################################################################
+
+go atlas simflags="-P 1"
+
+
+## Set Variables -----------------------------------------------------
+# Silicon thickness
+set Xsi  = 0.025
+
+
+#Gate oxide thickness
+set Xox  = 0.0030
+
+#Channel length
+set L	 = 0.15
+
+#backgound doping concentration
+set Nsub = 1E18
+
+#Power supply
+set VDD = 2.5
+
+## Mesh --------------------------------------------------------------
+
+mesh  space.mult=1.0
+ 
+x.mesh loc=0.00     spac=0.1
+x.mesh loc=0.9      spac=0.01
+x.mesh loc=1.1      spac=0.01
+x.mesh loc=1+$L+0.1 spac=0.01
+x.mesh loc=$L+2     spac=0.1
+
+y.mesh loc=-1*($Xox)  spac=($Xox)/5
+y.mesh loc=0          spac=($Xox)/5
+y.mesh loc=0          spac=0.002
+y.mesh loc=0.01       spac=0.002
+y.mesh loc=$Xsi/2     spac=0.002
+y.mesh loc=$Xsi       spac=0.002
+y.mesh loc=$Xsi       spac=($Xox)/5
+y.mesh loc=$Xsi+$Xox   spac=($Xox)/5
+
+## Regions -----------------------------------------------------------
+
+region      num=1 y.max=0    y.min=-1*$Xox oxide
+region      num=2 y.min=0    y.max=$Xsi silicon
+region      num=3 y.min=$Xsi y.max=$Xsi+$Xox oxide
+
+# region      num=4 y.min=$Xsi+0.2 silicon
+
+## Electrodes --------------------------------------------------------
+
+electrode   name=gate    x.min=1 x.max=1+$L y.min=($Xox*-1) y.max=($Xox*-1)
+electrode   name=gate    x.min=1 x.max=1+$L y.min=($Xsi+$Xox) y.max=($Xsi+$Xox)
+electrode   name=source  x.max=1    y.min=0 y.max=0
+electrode   name=source  x.max=1    y.min=$Xsi y.max=$Xsi
+electrode   name=drain   x.min=1+$L y.min=0 y.max=0
+electrode   name=drain   x.min=1+$L y.min=$Xsi y.max=$Xsi
+
+
+# electrode   name=substrate y.min=$Xsi+1.2 y.max=$Xsi+1.2
+
+contact     name=gate work=4.5
+
+## Doping ------------------------------------------------------------
+
+doping       uniform conc=$Nsub p.type  reg=2
+# doping       uniform conc=$Nsub p.type  reg=4
+doping       gauss n.type conc=1e20 char=0.01 lat.char=0.01 reg=2 x.r=1    y.top=0 y.bottom=$Xsi 
+doping       gauss n.type conc=1e20 char=0.01 lat.char=0.01 reg=2 x.l=1+$L y.top=0 y.bottom=$Xsi
+
+## Models ------------------------------------------------------------
+
+models srh conmob fldmob cvt
+
+OUTPUT CON.BAND
+
+##Linear mode Vt Sweep --------------------------------------------
+
+solve init
+
+tonyplot
+
+
+solve name=drain vdrain=0 vfinal=0.1  vstep =  0.1
+solve name=gate  vgate=0  vfinal=-0.5   vstep = -0.1
+
+
+log outf=Lin_L$'L'_Nub$'Nsub'_VDD$'VDD'_Xsi$'Xsi'_Xox$'Xox'.log
+
+solve name=gate  vgate=-0.5 vfinal=$VDD vstep=0.05 
+
+extract name="lin_vt" (xintercept(maxslope(curve(abs(v."gate"),abs(i."drain")))) \
+        - abs(ave(v."drain"))/2.0)
+
+#Extracting the Field Effect Mobility
+#set Cox = (8.85E-14*3.9)/($Xox*1E-4)
+#extract name="Ids" y.val from curve(v."gate", i."drain") where x.val=$VDD
+#extract name="iv_mob" ($Ids*$L*1e-4)/($Cox*($VDD-$lin_vt)*0.1)*1e4
+#extract name="max_gm" max(deriv(v."gate", i."drain"))
+
+# mobility from max transconductance (assume L/W=L/1)
+#extract name="mob_from_gm" ($max_gm*$L*1e-4)/(0.1*$Cox)*1e4
+
+#extract name="lin_ss" 1/slope(maxslope(curve((v."gate"),log10(abs(i."drain")))))*1000
+
+
+log off
+
+tonylplot Lin_L$'L'_Nub$'Nsub'_VDD$'VDD'_Xsi$'Xsi'_Xox$'Xox'.log
+
+
+
+tonyplot
+
+#
+struct outfile=Lin_L$'L'_Nub$'Nsub'_VDD$'VDD'_Xsi$'Xsi'_Xox$'Xox'.str
+
+
+
+## Sat Vt Sweep ---------------------------------------------------
+
+solve init
+
+solve name=drain vdrain=0 vfinal=$VDD vstep =  0.1
+
+struct outfile=Sat_L$'L'_Nub$'Nsub'_VDD$'VDD'_Xsi$'Xsi'_Xox$'Xox'_start.str
+
+
+
+solve name=gate  vgate=0  vfinal=-0.5   vstep = -0.1
+
+log outf=Sat_L$'L'_Nub$'Nsub'_VDD$'VDD'_Xsi$'Xsi'_Xox$'Xox'.log
+solve name=gate  vgate=-0.5 vfinal=$VDD vstep=0.05 
+
+extract name="sat_vt" (xintercept(maxslope(curve(v."gate",abs(i."drain")^(1/2)))))
+extract name="sat_ss" 1/slope(maxslope(curve((v."gate"),log10(abs(i."drain")))))*1000
+extract name="Iminsat" min(curve(v."gate",abs(i."drain")))
+extract name="Imaxsat" max(curve(v."gate",abs(i."drain")))
+extract name="I0_sat"  y.val from curve(v."gate",abs(i."drain")) where x.val=0
+extract name="Ivt_sat" y.val from curve(v."gate",abs(i."drain")) where x.val=$sat_vt 
+
+# number of decades of current drop from Vt to 0V
+extract name="Ivt_Ioff" log10($Ivt_sat/$I0_sat)
+
+extract name="DIBL" (($lin_vt - $sat_vt)*1000)/($VDD - 0.1)
+
+log off
+
+struct outfile=Sat_L$'L'_Nub$'Nsub'_VDD$'VDD'_Xsi$'Xsi'_Xox$'Xox'_end.str
+
+
+tonyplot Lin_L$'L'_Nub$'Nsub'_VDD$'VDD'_Xsi$'Xsi'_Xox$'Xox'.log Sat_L$'L'_Nub$'Nsub'_VDD$'VDD'_Xsi$'Xsi'_Xox$'Xox'.log
+
+
+
+quit
